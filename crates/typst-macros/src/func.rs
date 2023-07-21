@@ -89,11 +89,29 @@ fn prepare(stream: TokenStream, item: &syn::ItemFn) -> Result<Func> {
 
     let mut attrs = item.attrs.clone();
     let docs = documentation(&attrs);
-    let mut lines = docs.split('\n').collect();
-    let keywords = meta_line(&mut lines, "Keywords").ok().map(Into::into);
-    let category = meta_line(&mut lines, "Category")?.into();
-    let display = meta_line(&mut lines, "Display")?.into();
-    let docs = lines.join("\n").trim().into();
+
+    let mut lines = docs.split('\n');
+
+    let (keywords, category) = match lines.next_back() {
+        Some(line) => match meta_line(Some(line), "Keywords") {
+            Ok(keywords) => {
+                (Some(keywords.into()), meta_line(lines.next_back(), "Category")?.into())
+            }
+            _ => (None, meta_line(Some(line), "Category")?.into()),
+        },
+        None => bail!(callsite, "missing metadata key: Category"),
+    };
+    let display = meta_line(lines.next_back(), "Display")?.into();
+
+    let docs = lines
+        .next()
+        .map_or_else(String::new, |str| str.trim_start().to_owned());
+    let mut docs = lines.fold(docs, |mut docs, str| {
+        docs.push_str(str);
+        docs.push_str("\n");
+        docs
+    });
+    docs.truncate(docs.len() - (docs.len() - docs.trim_end().len()));
 
     let func = Func {
         name: sig.ident.to_string().trim_end_matches('_').replace('_', "-"),

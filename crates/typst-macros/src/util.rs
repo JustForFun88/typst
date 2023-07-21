@@ -112,12 +112,13 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
 }
 
 /// Extract a line of metadata from documentation.
-pub fn meta_line<'a>(lines: &mut Vec<&'a str>, key: &str) -> Result<&'a str> {
-    match lines.last().and_then(|line| line.strip_prefix(&format!("{key}:"))) {
-        Some(value) => {
-            lines.pop();
-            Ok(value.trim())
-        }
+#[inline]
+pub fn meta_line<'a>(line: Option<&'a str>, key: &str) -> Result<&'a str> {
+    match line
+        .and_then(|line| line.strip_prefix(key))
+        .and_then(|line| line.strip_prefix(":"))
+    {
+        Some(value) => Ok(value.trim()),
         None => bail!(callsite, "missing metadata key: {key}"),
     }
 }
